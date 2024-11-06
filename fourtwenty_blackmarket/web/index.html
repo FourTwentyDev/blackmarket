@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Market</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <div id="blackmarket" class="hidden">
+        <div class="container">
+            <!-- Header moved outside any form context -->
+            <header>
+                <div class="header-content">
+                    <h1 id="market-name" data-translation-key="black_market">BLACK MARKET</h1>
+                    <div class="header-accent"></div>
+                </div>
+                <!-- Added type="button" to prevent form submission -->
+                <button type="button" id="close-btn" data-translation-key="close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </header>
+
+            <!-- Added type="button" to prevent form submission -->
+            <nav class="tabs">
+                <button type="button" class="tab-btn active" data-tab="browse">
+                    <i class="fas fa-store"></i>
+                    <span data-translation-key="browse_listings">BROWSE</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="create">
+                    <i class="fas fa-plus"></i>
+                    <span data-translation-key="create_listing">SELL</span>
+                </button>
+            </nav>
+
+            <main>
+                <div id="browse-tab" class="tab-content active">
+                    <div class="content-header">
+                        <div class="accent-line"></div>
+                        <h2 data-translation-key="available_listings">AVAILABLE LISTINGS</h2>
+                    </div>
+                    <div id="listings-container">
+                        <div class="no-listings">
+                            <i class="fas fa-box-open"></i>
+                            <span data-translation-key="no_listings">No listings available</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="create-tab" class="tab-content">
+                    <div class="content-header">
+                        <div class="accent-line"></div>
+                        <h2 data-translation-key="create_listing_header">CREATE LISTING</h2>
+                    </div>
+                    <!-- Added novalidate to prevent browser validation -->
+                    <form id="create-listing-form" novalidate>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label data-translation-key="select_item">
+                                    <i class="fas fa-box"></i> SELECT ITEM
+                                </label>
+                                <div class="item-select-container">
+                                    <select id="item-select">
+                                        <option value="" data-translation-key="choose_item">Choose an item</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label data-translation-key="amount">
+                                    <i class="fas fa-hashtag"></i> AMOUNT
+                                </label>
+                                <input type="number" id="amount-input" min="1" value="1">
+                            </div>
+
+                            <div class="form-group">
+                                <label data-translation-key="price">
+                                    <i class="fas fa-dollar-sign"></i> PRICE
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="price-input"
+                                    min="100"
+                                    data-translation-key="minimum_price"
+                                    placeholder="Minimum $100"
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label data-translation-key="listing_type">
+                                    <i class="fas fa-tag"></i> LISTING TYPE
+                                </label>
+                                <select id="listing-type">
+                                    <option value="instant" data-translation-key="instant_buy">Instant Buy</option>
+                                    <option value="auction" data-translation-key="auction">Auction</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group duration-group hidden">
+                                <label data-translation-key="duration">
+                                    <i class="fas fa-clock"></i> DURATION (HOURS)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="duration-input" 
+                                    value="24" 
+                                    min="1" 
+                                    max="72"
+                                >
+                            </div>
+                        </div>
+
+                        <button type="submit" class="create-btn" data-translation-key="create">
+                            <i class="fas fa-plus-circle"></i> CREATE
+                        </button>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Templates bleiben unverändert -->
+    <template id="listing-template">
+        <div class="listing">
+            <div class="listing-info">
+                <div class="item-header">
+                    <div class="item-image"></div>
+                    <h3 class="item-label"></h3>
+                </div>
+                <div class="listing-details">
+                    <p class="amount">
+                        <i class="fas fa-cube"></i>
+                        <span data-translation-key="amount">Amount</span>: 
+                        <span class="amount-value"></span>
+                    </p>
+                    <p class="seller">
+                        <i class="fas fa-user"></i>
+                        <span data-translation-key="seller">Seller</span>: 
+                        <span class="seller-name"></span>
+                    </p>
+                    <div class="price-info"></div>
+                </div>
+            </div>
+            <div class="listing-actions"></div>
+        </div>
+    </template>
+
+    <template id="instant-buy-template">
+        <div class="price-container">
+            <p class="price">
+                <i class="fas fa-tag"></i>
+                <span data-translation-key="price">Price</span>: 
+                <span class="currency-symbol"></span><span class="price-value"></span>
+            </p>
+        </div>
+    </template>
+
+    <template id="auction-template">
+        <div class="auction-container">
+            <p class="current-bid">
+                <i class="fas fa-gavel"></i>
+                <span data-translation-key="current_bid">Current Bid</span>: 
+                <span class="currency-symbol"></span><span class="bid-value"></span>
+            </p>
+            <p class="ends-at">
+                <i class="fas fa-clock"></i>
+                <span data-translation-key="ends_at">Ends</span>: 
+                <span class="end-time"></span>
+            </p>
+        </div>
+    </template>
+
+    <template id="buy-button-template">
+        <button type="button" class="buy-btn" data-translation-key="buy_now">
+            <i class="fas fa-shopping-cart"></i> Buy Now
+        </button>
+    </template>
+
+    <template id="bid-form-template">
+        <div class="bid-container">
+            <div class="bid-input-wrapper">
+                <input type="number" class="bid-input" data-translation-key="enter_bid" placeholder="Enter bid">
+                <span class="currency-symbol"></span>
+            </div>
+            <button type="button" class="bid-btn" data-translation-key="place_bid">
+                <i class="fas fa-gavel"></i> Place Bid
+            </button>
+        </div>
+    </template>
+
+    <script src="script.js"></script>
+</body>
+</html>
