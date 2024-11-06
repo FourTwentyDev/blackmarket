@@ -9,7 +9,6 @@
     --text: #ffffff;
     --text-secondary: rgba(255, 255, 255, 0.7);
     --card-bg: rgba(20, 20, 25, 0.95);
-    --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     --border: 1px solid rgba(255, 255, 255, 0.1);
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -735,4 +734,36 @@ h1::after {
     .listing-details p {
         justify-content: center;
     }
+}
+
+/* Open and close animations */
+@keyframes slideFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+/* Apply the animations */
+.container {
+    animation: slideFadeIn 0.5s ease forwards;
+}
+
+.container.hidden {
+    animation: slideFadeOut 0.5s ease forwards;
 }

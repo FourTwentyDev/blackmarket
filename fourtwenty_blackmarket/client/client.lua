@@ -1,20 +1,21 @@
+-- Check if the player is near a market and initialize market reference
 local isNearMarket = false
 local currentMarket = nil
 
--- Initialize NUI callback
+-- NUI callback to fetch player items
 RegisterNUICallback('getPlayerItems', function(data, cb)
     local playerData = Bridge.GetPlayerData()
     local items = {}
     
-    -- Adjust for different inventory structures between frameworks
-    local inventory = playerData.inventory or playerData.items -- ESX uses inventory, QB uses items
+    -- Handle different inventory structures between frameworks
+    local inventory = playerData.inventory or playerData.items
     
-    for k, v in pairs(inventory) do
-        local count = v.count or v.amount -- ESX uses count, QB uses amount
+    for _, v in pairs(inventory) do
+        local count = v.count or v.amount -- Handle ESX/QB variations
         if count and count > 0 then
             table.insert(items, {
                 name = v.name,
-                label = v.label or v.name, -- QB might not have label
+                label = v.label or v.name, -- Fallback for label
                 count = count,
                 type = v.type
             })
@@ -24,6 +25,7 @@ RegisterNUICallback('getPlayerItems', function(data, cb)
     cb(items)
 end)
 
+-- NUI callback to create a new listing
 RegisterNUICallback('createListing', function(data, cb)
     TriggerServerEvent('fourtwenty_blackmarket:createListing', {
         itemName = data.itemName,
@@ -35,26 +37,31 @@ RegisterNUICallback('createListing', function(data, cb)
     cb('ok')
 end)
 
+-- NUI callback to purchase an item
 RegisterNUICallback('purchaseItem', function(data, cb)
     TriggerServerEvent('fourtwenty_blackmarket:purchaseItem', data.listingId)
     cb('ok')
 end)
 
+-- NUI callback to place a bid
 RegisterNUICallback('placeBid', function(data, cb)
     TriggerServerEvent('fourtwenty_blackmarket:placeBid', data.listingId, data.bidAmount)
     cb('ok')
 end)
 
+-- NUI callback to close the UI
 RegisterNUICallback('closeUI', function(data, cb)
     SetNuiFocus(false, false)
     cb('ok')
 end)
 
+-- NUI callback to request listings
 RegisterNUICallback('getListings', function(data, cb)
     TriggerServerEvent('fourtwenty_blackmarket:getListings')
     cb('ok')
 end)
 
+-- Handle listings data received from server
 RegisterNetEvent('fourtwenty_blackmarket:receiveListings')
 AddEventHandler('fourtwenty_blackmarket:receiveListings', function(listings)
     SendNUIMessage({
@@ -63,14 +70,14 @@ AddEventHandler('fourtwenty_blackmarket:receiveListings', function(listings)
     })
 end)
 
+-- NUI callback to get the current player identifier
 RegisterNUICallback('getCurrentPlayer', function(data, cb)
     local playerData = Bridge.GetPlayerData()
-    -- Handle different identifier formats between frameworks
-    local identifier = playerData.identifier or playerData.citizenid -- ESX uses identifier, QB uses citizenid
+    local identifier = playerData.identifier or playerData.citizenid -- Handle ESX/QB variations
     cb(identifier)
 end)
 
--- Check for nearby markets
+-- Thread to check proximity to market locations
 CreateThread(function()
     while true do
         Wait(500)
@@ -89,7 +96,7 @@ CreateThread(function()
     end
 end)
 
--- Draw marker and handle interaction
+-- Draw markers and interact when near a market
 CreateThread(function()
     while true do
         Wait(0)
@@ -97,7 +104,7 @@ CreateThread(function()
             local market = Config.Locations[currentMarket]
             DrawMarker(27, market.coords.x, market.coords.y, market.coords.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 200, 0, 0, 100, false, true, 2, false, nil, nil, false)
             
-            if IsControlJustReleased(0, 38) then -- E key
+            if IsControlJustReleased(0, 38) then -- E key for interaction
                 OpenBlackMarketUI()
             end
             
@@ -106,7 +113,7 @@ CreateThread(function()
     end
 end)
 
--- Initialize blips
+-- Initialize blips for market locations
 CreateThread(function()
     for k, v in pairs(Config.Locations) do
         if v.blip.enabled then
@@ -123,51 +130,38 @@ CreateThread(function()
     end
 end)
 
+-- Function to open the black market UI
 function OpenBlackMarketUI()
-    -- Create a complete translations object
     local translations = {
-        -- UI Headers and Navigation
         black_market = translate("black_market"),
         browse_listings = translate("browse_listings"),
         create_listing = translate("create_listing"),
         available_listings = translate("available_listings"),
         create_listing_header = translate("create_listing_header"),
-        
-        -- Form Labels
         select_item = translate("select_item"),
         amount = translate("amount"),
         price = translate("price"),
         listing_type = translate("listing_type"),
         duration = translate("duration"),
-        
-        -- Options and Placeholders
         instant_buy = translate("instant_buy"),
         auction = translate("auction"),
         choose_item = translate("choose_item"),
         enter_bid = translate("enter_bid"),
         minimum_price = translate("minimum_price"),
         items_available = translate("items_available"),
-
-        -- Buttons and Actions
         create = translate("create"),
         buy_now = translate("buy_now"),
         place_bid = translate("place_bid"),
         close = translate("close"),
-        
-        -- Listing Information
         seller = translate("seller"),
         current_bid = translate("current_bid"),
         ends_at = translate("ends_at"),
         no_listings = translate("no_listings"),
-        
-        -- Currency
         currency_symbol = translate("currency_symbol")
     }
 
-    -- Use Bridge callback
     Bridge.TriggerCallback('fourtwenty_blackmarket:getListings', function(listings)
         SetNuiFocus(true, true)
-        
         SendNUIMessage({
             type = "openUI",
             market = Config.Locations[currentMarket].name,
@@ -182,6 +176,7 @@ function OpenBlackMarketUI()
     end)
 end
 
+-- Function to draw 3D text in the world
 function DrawText3D(x, y, z, text)
     local onScreen, _x, _y = World3dToScreen2d(x, y, z)
     local px, py, pz = table.unpack(GetGameplayCamCoords())
@@ -200,7 +195,7 @@ function DrawText3D(x, y, z, text)
     end
 end
 
--- Refresh listings event handler
+-- Event to refresh listings when updated
 RegisterNetEvent('fourtwenty_blackmarket:refreshListings')
 AddEventHandler('fourtwenty_blackmarket:refreshListings', function()
     if isNearMarket then
@@ -208,7 +203,7 @@ AddEventHandler('fourtwenty_blackmarket:refreshListings', function()
     end
 end)
 
--- Notification handler
+-- Event for custom notifications
 RegisterNetEvent('fourtwenty_blackmarket:notify')
 AddEventHandler('fourtwenty_blackmarket:notify', function(message, type)
     if Config.NotificationType == Config.Framework:lower() then
@@ -218,7 +213,7 @@ AddEventHandler('fourtwenty_blackmarket:notify', function(message, type)
     end
 end)
 
--- Resource stop cleanup
+-- Cleanup when resource stops
 AddEventHandler('onResourceStop', function(resourceName)
     if (GetCurrentResourceName() ~= resourceName) then
         return

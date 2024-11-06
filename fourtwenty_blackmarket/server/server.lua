@@ -1,4 +1,4 @@
--- Initialize database
+-- Initialize database and create the black market table if it doesn't exist
 CreateThread(function()
     MySQL.Async.execute([[
         CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket` (
@@ -23,7 +23,7 @@ CreateThread(function()
     end)
 end)
 
--- Create new listing
+-- Create a new listing
 RegisterNetEvent('fourtwenty_blackmarket:createListing')
 AddEventHandler('fourtwenty_blackmarket:createListing', function(data)
     local source = source
@@ -31,7 +31,7 @@ AddEventHandler('fourtwenty_blackmarket:createListing', function(data)
     
     if not xPlayer then return end
     
-    -- Get inventory items using Bridge
+    -- Retrieve inventory and find the specified item
     local inventory = Bridge.GetItems(source)
     local item = nil
     for _, invItem in pairs(inventory) do
@@ -41,26 +41,28 @@ AddEventHandler('fourtwenty_blackmarket:createListing', function(data)
         end
     end
     
+    -- Ensure the player has enough of the item
     if not item or item.count < data.amount then
         Bridge.Notify(source, translate("no_items"), "error")
         return
     end
     
-    -- Validate price
+    -- Ensure the price is above the minimum
     if data.price < Config.MinimumPrice then
         Bridge.Notify(source, translate("invalid_price"), "error")
         return
     end
     
-    -- Remove item from inventory using Bridge
+    -- Remove the item from the player's inventory
     Bridge.RemoveItem(source, data.itemName, data.amount)
     
-    -- Create listing
+    -- Set auction end time if applicable
     local endTime = nil
     if data.isAuction then
         endTime = os.date("%Y-%m-%d %H:%M:%S", os.time() + (data.duration * 3600))
     end
     
+    -- Insert the new listing into the database
     MySQL.Async.insert('INSERT INTO fourtwenty_blackmarket (seller, item_name, amount, price, is_auction, end_time) VALUES (@seller, @item_name, @amount, @price, @is_auction, @end_time)', {
         ['@seller'] = xPlayer.identifier,
         ['@item_name'] = data.itemName,
@@ -76,7 +78,7 @@ AddEventHandler('fourtwenty_blackmarket:createListing', function(data)
     end)
 end)
 
--- Purchase item
+-- Handle item purchase
 RegisterNetEvent('fourtwenty_blackmarket:purchaseItem')
 AddEventHandler('fourtwenty_blackmarket:purchaseItem', function(listingId)
     local source = source
@@ -90,23 +92,25 @@ AddEventHandler('fourtwenty_blackmarket:purchaseItem', function(listingId)
         if #result > 0 then
             local listing = result[1]
             
+            -- Ensure the item is not an auction
             if listing.is_auction == 1 then
                 Bridge.Notify(source, translate("cannot_buy_auction"), "error")
                 return
             end
             
-            local playerMoney = xPlayer.getMoney() -- This might need adjustment based on your Bridge implementation
+            -- Ensure the player has enough money
+            local playerMoney = xPlayer.getMoney()
             if playerMoney < listing.price then
                 Bridge.Notify(source, translate("not_enough_money"), "error")
                 return
             end
             
+            -- Process payment
             Bridge.RemoveMoney(source, listing.price)
-            
             local taxAmount = math.floor(listing.price * Config.TaxRate)
             local sellerAmount = listing.price - taxAmount
             
-            -- Using Bridge.GetPlayerFromIdentifier
+            -- Pay the seller or queue the payment if offline
             local xSeller = Bridge.GetPlayerFromIdentifier(listing.seller)
             if xSeller then
                 Bridge.AddMoney(xSeller.source, sellerAmount)
@@ -118,8 +122,10 @@ AddEventHandler('fourtwenty_blackmarket:purchaseItem', function(listingId)
                 })
             end
             
+            -- Deliver the item to the buyer
             Bridge.AddItem(source, listing.item_name, listing.amount)
             
+            -- Remove the listing
             MySQL.Async.execute('DELETE FROM fourtwenty_blackmarket WHERE id = @id', {
                 ['@id'] = listingId
             })
@@ -132,7 +138,7 @@ AddEventHandler('fourtwenty_blackmarket:purchaseItem', function(listingId)
     end)
 end)
 
--- Place bid
+-- Place a bid on an auction
 RegisterNetEvent('fourtwenty_blackmarket:placeBid')
 AddEventHandler('fourtwenty_blackmarket:placeBid', function(listingId, bidAmount)
     local source = source
@@ -150,29 +156,33 @@ AddEventHandler('fourtwenty_blackmarket:placeBid', function(listingId, bidAmount
 
         local listing = result[1]
         
+        -- Ensure it is an auction
         if not listing.is_auction then
             Bridge.Notify(source, translate("not_auction_listing"), "error")
             return
         end
         
+        -- Ensure the auction hasn't ended
         if listing.end_time and os.time() > os.time(os.date("!*t", listing.end_time)) then
             Bridge.Notify(source, translate("auction_ended"), "error")
             return
         end
         
+        -- Ensure the bid is higher than the current highest bid
         local minimumBid = listing.highest_bid or listing.price
         if bidAmount <= minimumBid then
             Bridge.Notify(source, string.format(translate("bid_too_low"), minimumBid), "error")
             return
         end
         
+        -- Ensure the player has enough money
         local playerMoney = xPlayer.getMoney()
         if playerMoney < bidAmount then
             Bridge.Notify(source, translate("not_enough_money"), "error")
             return
         end
         
-        -- Refund previous bidder using Bridge.GetPlayerFromIdentifier
+        -- Refund the previous highest bidder
         if listing.highest_bidder then
             local previousBidder = Bridge.GetPlayerFromIdentifier(listing.highest_bidder)
             if previousBidder then
@@ -181,8 +191,10 @@ AddEventHandler('fourtwenty_blackmarket:placeBid', function(listingId, bidAmount
             end
         end
         
+        -- Deduct money from the new bidder
         Bridge.RemoveMoney(source, bidAmount)
         
+        -- Update the listing with the new highest bid
         MySQL.Async.execute('UPDATE fourtwenty_blackmarket SET highest_bidder = @bidder, highest_bid = @bid WHERE id = @id', {
             ['@bidder'] = xPlayer.identifier,
             ['@bid'] = bidAmount,
@@ -193,6 +205,8 @@ AddEventHandler('fourtwenty_blackmarket:placeBid', function(listingId, bidAmount
         end)
     end)
 end)
+
+-- Function to fetch current listings
 function FetchListings(source, cb)
     MySQL.Async.fetchAll([[
         SELECT 
@@ -206,8 +220,7 @@ function FetchListings(source, cb)
         ORDER BY bm.created_at DESC
         LIMIT 50
     ]], {}, function(listings)
-        -- Format the data
-        for i=1, #listings do
+        for i = 1, #listings do
             listings[i].is_auction = listings[i].is_auction == 1 or listings[i].is_auction == true
             listings[i].seller_name = "Anonymous"
             if listings[i].end_timestamp then
@@ -222,7 +235,8 @@ function FetchListings(source, cb)
         end
     end)
 end
--- Get listings (Event version)
+
+-- Fetch listings for a player
 RegisterNetEvent('fourtwenty_blackmarket:getListings')
 AddEventHandler('fourtwenty_blackmarket:getListings', function()
     local source = source
@@ -233,7 +247,7 @@ AddEventHandler('fourtwenty_blackmarket:getListings', function()
     FetchListings(source)
 end)
 
--- Register the callback through Bridge
+-- Register callback to fetch listings
 Bridge.RegisterCallback('fourtwenty_blackmarket:getListings', function(source, cb)
     local xPlayer = Bridge.GetPlayerFromId(source)
     
@@ -242,14 +256,14 @@ Bridge.RegisterCallback('fourtwenty_blackmarket:getListings', function(source, c
     FetchListings(source, cb)
 end)
 
--- Check for expired auctions
+-- Periodically check for expired auctions
 CreateThread(function()
     while true do
         Wait(60000) -- Check every minute
         
         MySQL.Async.fetchAll('SELECT * FROM fourtwenty_blackmarket WHERE is_auction = 1 AND end_time < NOW() AND highest_bidder IS NOT NULL', {}, function(auctions)
             for _, auction in ipairs(auctions) do
-                -- Process winning bid using Bridge
+                -- Handle winning bid
                 local winner = Bridge.GetPlayerFromIdentifier(auction.highest_bidder)
                 if winner then
                     Bridge.AddItem(winner.source, auction.item_name, auction.amount)
@@ -262,7 +276,7 @@ CreateThread(function()
                     })
                 end
                 
-                -- Pay seller using Bridge
+                -- Pay the seller
                 local taxAmount = math.floor(auction.highest_bid * Config.TaxRate)
                 local sellerAmount = auction.highest_bid - taxAmount
                 
@@ -276,6 +290,7 @@ CreateThread(function()
                     })
                 end
                 
+                -- Remove the auction from the database
                 MySQL.Async.execute('DELETE FROM fourtwenty_blackmarket WHERE id = @id', {
                     ['@id'] = auction.id
                 })

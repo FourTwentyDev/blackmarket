@@ -18,18 +18,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 content.offsetHeight; // Trigger reflow
                 content.style.animation = null;
             });
-            
+
             // Cleanup old form if exists
             if (currentForm) {
                 currentForm.removeEventListener('submit', handleCreateListing);
                 currentForm = null;
             }
-            
+
             // Activate new tab
             button.classList.add('active');
             const newContent = document.getElementById(`${button.dataset.tab}-tab`);
             newContent.classList.add('active');
-            
+
             // Setup new form if switching to create tab
             if (button.dataset.tab === 'create') {
                 setupCreateForm();
@@ -43,28 +43,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Close button with animation cleanup
-    document.getElementById('close-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
+    const closeUI = () => {
         // Cleanup any ongoing animations
         document.querySelectorAll('.tab-content').forEach(content => {
             content.style.animation = 'none';
             content.offsetHeight; // Trigger reflow
             content.style.animation = null;
         });
-        
+
         // Cleanup form
         if (currentForm) {
             currentForm.removeEventListener('submit', handleCreateListing);
             currentForm = null;
         }
-        
+
         document.getElementById('blackmarket').classList.add('hidden');
         fetch(`https://fourtwenty_blackmarket/closeUI`, {
             method: 'POST',
             body: JSON.stringify({})
         });
+
+        if (window.timeUpdateInterval) {
+            clearInterval(window.timeUpdateInterval);
+            window.timeUpdateInterval = null;
+        }
+    };
+
+    document.getElementById('close-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeUI();
+    });
+
+    // Add listener for 'Esc' key to close UI
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeUI();
+        }
     });
 
     // Listing type change handler
@@ -73,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         durationGroup.classList.toggle('hidden', e.target.value !== 'auction');
     });
 });
+
 
 // Setup create form function
 function setupCreateForm() {
