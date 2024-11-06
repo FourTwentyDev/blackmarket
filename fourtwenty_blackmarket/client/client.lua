@@ -2,23 +2,36 @@
 local isNearMarket = false
 local currentMarket = nil
 
--- NUI callback to fetch player items
 RegisterNUICallback('getPlayerItems', function(data, cb)
-    local playerData = Bridge.GetPlayerData()
     local items = {}
     
-    -- Handle different inventory structures between frameworks
-    local inventory = playerData.inventory or playerData.items
-    
-    for _, v in pairs(inventory) do
-        local count = v.count or v.amount -- Handle ESX/QB variations
-        if count and count > 0 then
-            table.insert(items, {
-                name = v.name,
-                label = v.label or v.name, -- Fallback for label
-                count = count,
-                type = v.type
-            })
+    if Config.ox_inventory then
+        local playerItems = exports.ox_inventory:GetPlayerItems()
+        
+        for _, v in pairs(playerItems) do
+            if v.count > 0 then
+                table.insert(items, {
+                    name = v.name,
+                    label = exports.ox_inventory:Items()[v.name].label,
+                    count = v.count,
+                    type = v.type or 'item'
+                })
+            end
+        end
+    else
+        local playerData = Bridge.GetPlayerData()
+        local inventory = playerData.inventory or playerData.items
+
+        for _, v in pairs(inventory) do
+            local count = v.count or v.amount
+            if count and count > 0 then
+                table.insert(items, {
+                    name = v.name,
+                    label = v.label or v.name,
+                    count = count,
+                    type = v.type
+                })
+            end
         end
     end
     
@@ -157,7 +170,8 @@ function OpenBlackMarketUI()
         current_bid = translate("current_bid"),
         ends_at = translate("ends_at"),
         no_listings = translate("no_listings"),
-        currency_symbol = translate("currency_symbol")
+        currency_symbol = translate("currency_symbol"),
+        time_remaining = translate("time_remaining")
     }
 
     Bridge.TriggerCallback('fourtwenty_blackmarket:getListings', function(listings)

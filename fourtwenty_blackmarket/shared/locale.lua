@@ -46,6 +46,7 @@ Locales["en"] = {
     ["seller"] = "Seller",
     ["instant_buy"] = "Instant Buy",
     ["press_e"] = "Press ~INPUT_CONTEXT~ to access black market",
+    ["time_remaining"] = "Time remaining:",
     
     -- Messages
     ["listing_created"] = "Listing created successfully",
@@ -110,7 +111,8 @@ Locales["de"] = {
     ["seller"] = "Verkäufer",
     ["instant_buy"] = "Sofortkauf",
     ["press_e"] = "Drücke ~INPUT_CONTEXT~ um den Schwarzmarkt zu öffnen",
-    
+    ["time_remaining"] = "Verbleibende Zeit:",
+
     -- Messages
     ["listing_created"] = "Angebot erfolgreich erstellt",
     ["item_purchased"] = "Item erfolgreich gekauft",

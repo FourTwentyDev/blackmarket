@@ -211,16 +211,24 @@ function FetchListings(source, cb)
     MySQL.Async.fetchAll([[
         SELECT 
             bm.*,
-            i.label as item_label,
             UNIX_TIMESTAMP(bm.end_time) as end_timestamp
         FROM fourtwenty_blackmarket bm
-        LEFT JOIN items i ON bm.item_name = i.name
         WHERE (bm.is_auction = 0) 
            OR (bm.is_auction = 1 AND bm.end_time > NOW())
         ORDER BY bm.created_at DESC
         LIMIT 50
     ]], {}, function(listings)
         for i = 1, #listings do
+            -- Get item label
+            local itemName = listings[i].item_name
+            
+            if Config.ox_inventory then
+                local item = exports.ox_inventory:Items()[itemName]
+                listings[i].item_label = item and item.label or itemName
+            else
+                listings[i].item_label = Bridge.GetItemLabel(itemName)
+            end
+            
             listings[i].is_auction = listings[i].is_auction == 1 or listings[i].is_auction == true
             listings[i].seller_name = "Anonymous"
             if listings[i].end_timestamp then

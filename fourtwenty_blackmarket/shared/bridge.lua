@@ -36,6 +36,11 @@ if Config.Framework == "ESX" then
                 xPlayer.removeInventoryItem(item, count)
             end
         end
+
+        Bridge.GetItemLabel = function(itemName)
+            local item = ESX.Items[itemName]
+            return item and item.label or itemName
+        end
         
         -- Money Management
         Bridge.AddMoney = function(source, amount)
@@ -132,6 +137,11 @@ if Config.Framework == "QB" then
             if Player then
                 Player.Functions.RemoveItem(item, count)
             end
+        end
+
+        Bridge.GetItemLabel = function(itemName)
+            local item = QBCore.Shared.Items[itemName]
+            return item and item.label or itemName
         end
         
         -- Money Management

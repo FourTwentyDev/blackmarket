@@ -185,8 +185,8 @@ window.addEventListener('message', (event) => {
     
     if (!data.type) return;
 
-    console.log('Received message:', JSON.stringify(data));
-    console.log(data.market);
+    //console.log('Received message:', JSON.stringify(data));
+    //console.log(data.market);
 
     switch (data.type) {
         case 'openUI':
@@ -265,7 +265,7 @@ function formatTimeRemaining(endTimeStr) {
 }
 
 async function updateListings(listings) {
-    console.log("Raw listings data:", JSON.stringify(listings, null, 2));
+    //console.log("Raw listings data:", JSON.stringify(listings, null, 2));
     
     const container = document.getElementById('listings-container');
     
@@ -318,7 +318,7 @@ async function updateListings(listings) {
                         ${isAuction ? `
                             <p><i class="fas fa-gavel"></i> ${config.translations.current_bid || 'Current Bid'}: ${config.translations.currency_symbol || '$'}${currentPrice.toLocaleString()}</p>
                             <p><i class="fas fa-clock"></i> ${config.translations.ends_at || 'Ends at'}: ${endTimeDisplay}</p>
-                            <p class="time-remaining"><i class="fas fa-hourglass-half"></i> ${config.translations.time_remaining || 'Time Remaining'}: ${timeRemaining}</p>
+                            <p class="time-remaining"><i class="fas fa-hourglass-half"></i> ${config.translations.time_remaining || 'Time Remaining'} ${timeRemaining}</p>
                         ` : `
                             <p><i class="fas fa-tag"></i> ${config.translations.price || 'Price'}: ${config.translations.currency_symbol || '$'}${currentPrice.toLocaleString()}</p>
                         `}

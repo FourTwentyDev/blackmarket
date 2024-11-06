@@ -2,9 +2,11 @@ Config = {}
 
 -- Framework configuration
 Config.Framework = "ESX" -- or "QB"
-Config.Language = "en"
+Config.Language = "de"
 
 Config.ItemImagePath = "nui://inventory/web/dist/assets/items/"
+
+Config.ox_inventory = false
 
 -- Database table name
 Config.DatabaseTable = "fourtwenty_blackmarket"
