@@ -1,4 +1,4 @@
--- Initialize database and create the black market table if it doesn't exist
+-- Initialize database and create all required tables if they don't exist
 CreateThread(function()
     MySQL.Async.execute([[
         CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket` (
@@ -13,12 +13,31 @@ CreateThread(function()
             `highest_bid` int(11) DEFAULT NULL,
             `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+        CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket_payments` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `seller` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `amount` int(11) NOT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `paid` tinyint(1) NOT NULL DEFAULT '0',
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+        CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket_pending` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `player` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `item_name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `amount` int(11) NOT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `delivered` tinyint(1) NOT NULL DEFAULT '0',
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ]], {}, function(success)
         if success then
-            print('^2[INFO]^7 Black market table created successfully')
+            print('^2[INFO]^7 Black market tables created successfully')
         else
-            print('^1[ERROR]^7 Failed to create black market table')
+            print('^1[ERROR]^7 Failed to create black market tables')
         end
     end)
 end)
@@ -269,6 +288,7 @@ CreateThread(function()
     while true do
         Wait(60000) -- Check every minute
         
+        -- Check expired auctions with bids
         MySQL.Async.fetchAll('SELECT * FROM fourtwenty_blackmarket WHERE is_auction = 1 AND end_time < NOW() AND highest_bidder IS NOT NULL', {}, function(auctions)
             for _, auction in ipairs(auctions) do
                 -- Handle winning bid
@@ -291,6 +311,7 @@ CreateThread(function()
                 local seller = Bridge.GetPlayerFromIdentifier(auction.seller)
                 if seller then
                     Bridge.AddMoney(seller.source, sellerAmount)
+                    Bridge.Notify(seller.source, translate("auction_completed"), "success")
                 else
                     MySQL.Async.execute('INSERT INTO fourtwenty_blackmarket_payments (seller, amount) VALUES (@seller, @amount)', {
                         ['@seller'] = auction.seller,
@@ -298,10 +319,66 @@ CreateThread(function()
                     })
                 end
                 
-                -- Remove the auction from the database
+                -- Remove the auction
                 MySQL.Async.execute('DELETE FROM fourtwenty_blackmarket WHERE id = @id', {
                     ['@id'] = auction.id
                 })
+            end
+        end)
+
+        -- Check expired auctions without bids
+        MySQL.Async.fetchAll('SELECT * FROM fourtwenty_blackmarket WHERE is_auction = 1 AND end_time < NOW() AND highest_bidder IS NULL', {}, function(auctions)
+            for _, auction in ipairs(auctions) do
+                -- Return items to seller if online
+                local seller = Bridge.GetPlayerFromIdentifier(auction.seller)
+                if seller then
+                    Bridge.AddItem(seller.source, auction.item_name, auction.amount)
+                    Bridge.Notify(seller.source, translate("auction_expired_items_returned"), "info")
+                else
+                    -- Queue items for return to seller when they come online
+                    MySQL.Async.execute('INSERT INTO fourtwenty_blackmarket_pending (player, item_name, amount) VALUES (@player, @item, @amount)', {
+                        ['@player'] = auction.seller,
+                        ['@item'] = auction.item_name,
+                        ['@amount'] = auction.amount
+                    })
+                end
+                
+                -- Remove the expired auction
+                MySQL.Async.execute('DELETE FROM fourtwenty_blackmarket WHERE id = @id', {
+                    ['@id'] = auction.id
+                })
+            end
+        end)
+        
+        -- Check pending payments
+        MySQL.Async.fetchAll('SELECT * FROM fourtwenty_blackmarket_payments WHERE paid = 0', {}, function(payments)
+            for _, payment in ipairs(payments) do
+                local seller = Bridge.GetPlayerFromIdentifier(payment.seller)
+                if seller then
+                    Bridge.AddMoney(seller.source, payment.amount)
+                    Bridge.Notify(seller.source, translate("delayed_payment_received"), "success")
+                    
+                    -- Mark payment as completed
+                    MySQL.Async.execute('UPDATE fourtwenty_blackmarket_payments SET paid = 1 WHERE id = @id', {
+                        ['@id'] = payment.id
+                    })
+                end
+            end
+        end)
+
+        -- Check pending deliveries
+        MySQL.Async.fetchAll('SELECT * FROM fourtwenty_blackmarket_pending WHERE delivered = 0', {}, function(deliveries)
+            for _, delivery in ipairs(deliveries) do
+                local player = Bridge.GetPlayerFromIdentifier(delivery.player)
+                if player then
+                    Bridge.AddItem(player.source, delivery.item_name, delivery.amount)
+                    Bridge.Notify(player.source, translate("delayed_item_received"), "success")
+                    
+                    -- Mark delivery as completed
+                    MySQL.Async.execute('UPDATE fourtwenty_blackmarket_pending SET delivered = 1 WHERE id = @id', {
+                        ['@id'] = delivery.id
+                    })
+                end
             end
         end)
     end
