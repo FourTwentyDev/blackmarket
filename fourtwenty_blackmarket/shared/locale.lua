@@ -56,6 +56,9 @@ Locales["en"] = {
     ["no_listings"] = "No listings available",
     ["item_sold"] = "An item has been sold on the blackmarket",
     ["bid_placed"] = "Bid has been placed",
+    ["auction_expired_items_returned"] = "Your unsold auction items have been returned",
+    ["delayed_payment_received"] = "You received a delayed payment from the black market",
+    ["delayed_item_received"] = "You received your items from a previous transaction",
 
     -- Auction
     ["auction"] = "Auction",
@@ -63,6 +66,7 @@ Locales["en"] = {
     ["auction_won"] = "Congratulations! You won the auction",
     ["auction_outbid"] = "You have been outbid!",
     ["auction_ended"] = "This auction has already ended",
+    ["auction_completed"] = "Your auction has completed successfully",
     ["current_bid"] = "Current Bid",
     ["ends_at"] = "Ends",
     ["place_bid"] = "Place Bid",
@@ -121,6 +125,9 @@ Locales["de"] = {
     ["no_listings"] = "Keine Angebote verfügbar",
     ["item_sold"] = "Ein Item wurde im Schwarzmarkt verkauft",
     ["bid_placed"] = "Gebot abgegeben",
+    ["auction_expired_items_returned"] = "Deine unverkauften Auktionsitems wurden zurückgegeben",
+    ["delayed_payment_received"] = "Du hast eine ausstehende Zahlung vom Schwarzmarkt erhalten",
+    ["delayed_item_received"] = "Du hast deine Items aus einer vorherigen Transaktion erhalten",
 
     -- Auction
     ["auction"] = "Auktion",
@@ -128,6 +135,7 @@ Locales["de"] = {
     ["auction_won"] = "Glückwunsch! Du hast die Auktion gewonnen",
     ["auction_outbid"] = "Du wurdest überboten!",
     ["auction_ended"] = "Diese Auktion ist bereits beendet",
+    ["auction_completed"] = "Deine Auktion wurde erfolgreich abgeschlossen",
     ["current_bid"] = "Aktuelles Gebot",
     ["ends_at"] = "Endet",
     ["place_bid"] = "Gebot abgeben",
