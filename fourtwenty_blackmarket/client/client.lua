@@ -1,6 +1,18 @@
 -- Check if the player is near a market and initialize market reference
 local isNearMarket = false
 local currentMarket = nil
+local marketLocations = {}
+
+-- Request current market locations when resource starts
+CreateThread(function()
+    TriggerServerEvent('fourtwenty_blackmarket:requestLocations')
+end)
+
+-- Receive market locations from server
+RegisterNetEvent('fourtwenty_blackmarket:receiveLocations')
+AddEventHandler('fourtwenty_blackmarket:receiveLocations', function(locations)
+    marketLocations = locations
+end)
 
 RegisterNUICallback('getPlayerItems', function(data, cb)
     local items = {}
@@ -47,6 +59,12 @@ RegisterNUICallback('createListing', function(data, cb)
         isAuction = data.isAuction,
         duration = data.duration
     })
+    cb('ok')
+end)
+
+-- NUI callback to remove a listing
+RegisterNUICallback('removeListing', function(data, cb)
+    TriggerServerEvent('fourtwenty_blackmarket:removeListing', data.listingId)
     cb('ok')
 end)
 
@@ -98,8 +116,8 @@ CreateThread(function()
         local playerCoords = GetEntityCoords(playerPed)
         isNearMarket = false
         
-        for k, v in pairs(Config.Locations) do
-            local distance = #(playerCoords - v.coords)
+        for k, coords in pairs(marketLocations) do
+            local distance = #(playerCoords - coords)
             if distance < 3.0 then
                 isNearMarket = true
                 currentMarket = k
@@ -113,32 +131,39 @@ end)
 CreateThread(function()
     while true do
         Wait(0)
-        if isNearMarket then
-            local market = Config.Locations[currentMarket]
-            DrawMarker(27, market.coords.x, market.coords.y, market.coords.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 200, 0, 0, 100, false, true, 2, false, nil, nil, false)
+        if isNearMarket and marketLocations[currentMarket] then
+            local coords = marketLocations[currentMarket]
+            DrawMarker(27, coords.x, coords.y, coords.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 200, 0, 0, 100, false, true, 2, false, nil, nil, false)
             
             if IsControlJustReleased(0, 38) then -- E key for interaction
                 OpenBlackMarketUI()
             end
             
-            DrawText3D(market.coords.x, market.coords.y, market.coords.z, translate("press_e"))
+            DrawText3D(coords.x, coords.y, coords.z, translate("press_e"))
         end
     end
 end)
 
 -- Initialize blips for market locations
 CreateThread(function()
-    for k, v in pairs(Config.Locations) do
-        if v.blip.enabled then
-            local blip = AddBlipForCoord(v.coords.x, v.coords.y, v.coords.z)
-            SetBlipSprite(blip, v.blip.sprite)
-            SetBlipDisplay(blip, 4)
-            SetBlipScale(blip, v.blip.scale)
-            SetBlipColour(blip, v.blip.color)
-            SetBlipAsShortRange(blip, true)
-            BeginTextCommandSetBlipName("STRING")
-            AddTextComponentString(v.name)
-            EndTextCommandSetBlipName(blip)
+    while true do
+        Wait(1000)
+        -- Wait until we have received the market locations from the server
+        if next(marketLocations) then
+            for k, coords in pairs(marketLocations) do
+                if Config.Locations[k].blip.enabled then
+                    local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
+                    SetBlipSprite(blip, Config.Locations[k].blip.sprite)
+                    SetBlipDisplay(blip, 4)
+                    SetBlipScale(blip, Config.Locations[k].blip.scale)
+                    SetBlipColour(blip, Config.Locations[k].blip.color)
+                    SetBlipAsShortRange(blip, true)
+                    BeginTextCommandSetBlipName("STRING")
+                    AddTextComponentString(Config.Locations[k].name)
+                    EndTextCommandSetBlipName(blip)
+                end
+            end
+            break -- Exit the loop once blips are created
         end
     end
 end)
@@ -171,7 +196,8 @@ function OpenBlackMarketUI()
         ends_at = translate("ends_at"),
         no_listings = translate("no_listings"),
         currency_symbol = translate("currency_symbol"),
-        time_remaining = translate("time_remaining")
+        time_remaining = translate("time_remaining"),
+        remove_listing = translate("remove_listing")
     }
 
     Bridge.TriggerCallback('fourtwenty_blackmarket:getListings', function(listings)

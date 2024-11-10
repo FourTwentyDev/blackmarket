@@ -89,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-
 // Setup create form function
 function setupCreateForm() {
     const form = document.getElementById('create-listing-form');
@@ -172,6 +171,17 @@ async function handleCreateListing(e) {
         console.error('Error creating listing:', error);
     }
 }
+
+// Remove listing function
+async function removeListing(listingId) {
+    if (!listingId) return;
+    
+    await fetch(`https://fourtwenty_blackmarket/removeListing`, {
+        method: 'POST',
+        body: JSON.stringify({ listingId })
+    });
+}
+
 function getCurrentPlayerIdentifier() {
     return fetch(`https://fourtwenty_blackmarket/getCurrentPlayer`, {
         method: 'POST',
@@ -179,25 +189,19 @@ function getCurrentPlayerIdentifier() {
     })
     .then(response => response.json());
 }
+
 // Listen for messages from FiveM client
 window.addEventListener('message', (event) => {
     const data = event.data;
     
     if (!data.type) return;
 
-    //console.log('Received message:', JSON.stringify(data));
-    //console.log(data.market);
-
     switch (data.type) {
         case 'openUI':
-
             updateUITranslations();
-
             document.getElementById('blackmarket').classList.remove('hidden');
             document.getElementById('market-name').textContent = data.market || 'Black Market';
             config = data.config || {};
-            
-            
             
             if (data.listings) {
                 updateListings(data.listings);
@@ -265,8 +269,6 @@ function formatTimeRemaining(endTimeStr) {
 }
 
 async function updateListings(listings) {
-    //console.log("Raw listings data:", JSON.stringify(listings, null, 2));
-    
     const container = document.getElementById('listings-container');
     
     if (!Array.isArray(listings) || listings.length === 0) {
@@ -285,6 +287,7 @@ async function updateListings(listings) {
         const isAuction = listing.is_auction === true || listing.is_auction === 1;
         const currentPrice = isAuction ? (listing.highest_bid || listing.price) : listing.price;
         const isHighestBidder = listing.highest_bidder === currentPlayer;
+        const isOwner = listing.seller === currentPlayer;
         
         let endTimeDisplay = 'N/A';
         let timeRemaining = '';
@@ -325,7 +328,12 @@ async function updateListings(listings) {
                     </div>
                 </div>
                 <div class="listing-actions">
-                ${isAuction ? `
+                ${isOwner ? `
+                    <button class="remove-btn" onclick="removeListing(${listing.id})">
+                        <i class="fas fa-trash"></i>
+                        ${config.translations.remove_listing || 'Remove Listing'}
+                    </button>
+                ` : isAuction ? `
                     <div class="bid-container">
                         <div class="bid-input-wrapper">
                             <input type="number" 
@@ -363,29 +371,6 @@ async function updateListings(listings) {
         }, 60000); // Update every minute
     }
 }
-
-// Helper function to get current player identifier
-async function getCurrentPlayerIdentifier() {
-    try {
-        const response = await fetch(`https://fourtwenty_blackmarket/getCurrentPlayer`, {
-            method: 'POST',
-            body: JSON.stringify({})
-        });
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error getting player identifier:', error);
-        return null;
-    }
-}
-
-// Cleanup interval when UI closes
-document.getElementById('close-btn').addEventListener('click', () => {
-    if (window.timeUpdateInterval) {
-        clearInterval(window.timeUpdateInterval);
-        window.timeUpdateInterval = null;
-    }
-});
 
 // Purchase item function
 async function purchaseItem(listingId) {
@@ -433,7 +418,7 @@ function updateUITranslations() {
     });
 }
 
-// Update item select function (keeping your existing implementation)
+// Update item select function
 function updateItemSelect(items) {
     const select = document.getElementById('item-select');
     const container = select.parentElement;

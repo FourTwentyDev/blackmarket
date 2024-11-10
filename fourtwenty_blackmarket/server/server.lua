@@ -1,45 +1,86 @@
 -- Initialize database and create all required tables if they don't exist
+local selectedLocations = {}
+
+-- Function to randomly select coordinates for each location
+local function initializeRandomLocations()
+    for locationIndex, location in pairs(Config.Locations) do
+        -- Select a random coordinate from the available coordinates
+        local randomIndex = math.random(1, #location.coords)
+        selectedLocations[locationIndex] = location.coords[randomIndex]
+        print(string.format("^2[INFO]^7 Selected coordinates for %s: %s", location.name, tostring(selectedLocations[locationIndex])))
+    end
+end
+
+-- Initialize random locations when resource starts
 CreateThread(function()
+    -- Initialize random seed
+    math.randomseed(os.time())
+    -- Select random locations
+    initializeRandomLocations()
+    
     MySQL.Async.execute([[
         CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket` (
-            `id` int(11) NOT NULL AUTO_INCREMENT,
-            `seller` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
-            `item_name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
-            `amount` int(11) NOT NULL,
-            `price` int(11) NOT NULL,
-            `is_auction` tinyint(1) NOT NULL DEFAULT '0',
-            `end_time` datetime DEFAULT NULL,
-            `highest_bidder` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
-            `highest_bid` int(11) DEFAULT NULL,
-            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-        CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket_payments` (
-            `id` int(11) NOT NULL AUTO_INCREMENT,
-            `seller` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
-            `amount` int(11) NOT NULL,
-            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `paid` tinyint(1) NOT NULL DEFAULT '0',
-            PRIMARY KEY (`id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-        CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket_pending` (
-            `id` int(11) NOT NULL AUTO_INCREMENT,
-            `player` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
-            `item_name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
-            `amount` int(11) NOT NULL,
-            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `delivered` tinyint(1) NOT NULL DEFAULT '0',
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `seller` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `item_name` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `amount` INT(11) NOT NULL,
+            `price` INT(11) NOT NULL,
+            `is_auction` TINYINT(1) NOT NULL DEFAULT 0,
+            `end_time` DATETIME DEFAULT NULL,
+            `highest_bidder` VARCHAR(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
+            `highest_bid` INT(11) DEFAULT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     ]], {}, function(success)
         if success then
-            print('^2[INFO]^7 Black market tables created successfully')
+            print('^2[INFO]^7 Table `fourtwenty_blackmarket` created successfully.')
         else
-            print('^1[ERROR]^7 Failed to create black market tables')
+            print('^1[ERROR]^7 Failed to create table `fourtwenty_blackmarket`.')
         end
     end)
+
+    MySQL.Async.execute([[
+        CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket_payments` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `seller` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `amount` INT(11) NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `paid` TINYINT(1) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ]], {}, function(success)
+        if success then
+            print('^2[INFO]^7 Table `fourtwenty_blackmarket_payments` created successfully.')
+        else
+            print('^1[ERROR]^7 Failed to create table `fourtwenty_blackmarket_payments`.')
+        end
+    end)
+
+    MySQL.Async.execute([[
+        CREATE TABLE IF NOT EXISTS `fourtwenty_blackmarket_pending` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `player` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `item_name` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+            `amount` INT(11) NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `delivered` TINYINT(1) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+    ]], {}, function(success)
+        if success then
+            print('^2[INFO]^7 Table `fourtwenty_blackmarket_pending` created successfully.')
+        else
+            print('^1[ERROR]^7 Failed to create table `fourtwenty_blackmarket_pending`.')
+        end
+    end)
+end)
+
+-- Event to send current market locations to clients
+RegisterNetEvent('fourtwenty_blackmarket:requestLocations')
+AddEventHandler('fourtwenty_blackmarket:requestLocations', function()
+    local source = source
+    TriggerClientEvent('fourtwenty_blackmarket:receiveLocations', source, selectedLocations)
 end)
 
 -- Create a new listing
@@ -93,6 +134,52 @@ AddEventHandler('fourtwenty_blackmarket:createListing', function(data)
         if listingId > 0 then
             Bridge.Notify(source, translate("listing_created"), "success")
             TriggerClientEvent('fourtwenty_blackmarket:refreshListings', -1)
+        end
+    end)
+end)
+
+-- Remove a listing
+RegisterNetEvent('fourtwenty_blackmarket:removeListing')
+AddEventHandler('fourtwenty_blackmarket:removeListing', function(listingId)
+    local source = source
+    local xPlayer = Bridge.GetPlayerFromId(source)
+    
+    if not xPlayer then return end
+    
+    MySQL.Async.fetchAll('SELECT * FROM fourtwenty_blackmarket WHERE id = @id AND seller = @seller', {
+        ['@id'] = listingId,
+        ['@seller'] = xPlayer.identifier
+    }, function(result)
+        if #result > 0 then
+            local listing = result[1]
+            
+            -- Return the item to the seller
+            Bridge.AddItem(source, listing.item_name, listing.amount)
+            
+            -- If it's an auction with bids, return the money to the highest bidder
+            if listing.is_auction == 1 and listing.highest_bidder then
+                local highestBidder = Bridge.GetPlayerFromIdentifier(listing.highest_bidder)
+                if highestBidder then
+                    Bridge.AddMoney(highestBidder.source, listing.highest_bid)
+                    Bridge.Notify(highestBidder.source, translate("auction_cancelled_refund"), "info")
+                else
+                    -- Queue the refund for when they come online
+                    MySQL.Async.execute('INSERT INTO fourtwenty_blackmarket_payments (seller, amount) VALUES (@seller, @amount)', {
+                        ['@seller'] = listing.highest_bidder,
+                        ['@amount'] = listing.highest_bid
+                    })
+                end
+            end
+            
+            -- Remove the listing
+            MySQL.Async.execute('DELETE FROM fourtwenty_blackmarket WHERE id = @id', {
+                ['@id'] = listingId
+            })
+            
+            Bridge.Notify(source, translate("listing_removed"), "success")
+            TriggerClientEvent('fourtwenty_blackmarket:refreshListings', -1)
+        else
+            Bridge.Notify(source, translate("not_your_listing"), "error")
         end
     end)
 end)

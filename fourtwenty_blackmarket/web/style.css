@@ -1,3 +1,4 @@
+/* First add the remove-btn styling after the buy-btn, create-btn, bid-btn styles */
 :root {
     --primary: #0a0a0f;
     --secondary: #141419;
@@ -207,7 +208,8 @@ h1::after {
 .listing::after,
 .buy-btn::after,
 .create-btn::after,
-.bid-btn::after {
+.bid-btn::after,
+.remove-btn::after {
     content: '';
     position: absolute;
     top: -50%;
@@ -224,7 +226,8 @@ h1::after {
 .listing:hover::after,
 .buy-btn:hover::after,
 .create-btn:hover::after,
-.bid-btn:hover::after {
+.bid-btn:hover::after,
+.remove-btn:hover::after {
     opacity: 1;
 }
 
@@ -484,7 +487,8 @@ h1::after {
 /* Button styles */
 .buy-btn,
 .create-btn,
-.bid-btn {
+.bid-btn,
+.remove-btn {
     background: var(--accent);
     color: white;
     border: none;
@@ -505,7 +509,8 @@ h1::after {
 
 .buy-btn:hover,
 .create-btn:hover,
-.bid-btn:hover {
+.bid-btn:hover,
+.remove-btn:hover {
     background: var(--accent-hover);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(255, 23, 68, 0.3);
